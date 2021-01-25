@@ -47,7 +47,7 @@ class Board:
 
     def get_hotspots(self) -> List[tuple]:
         with open(".temp.txt", "w") as f:
-            spaces = [space.n_landed_on for _, space in self]
+            spaces = [str(space.n_landed_on) for _, space in self]
             f.write(",".join(spaces))
 
         return sorted(self, key=lambda t: t[1].n_landed_on, reverse=True)

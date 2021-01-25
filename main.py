@@ -38,7 +38,7 @@ if __name__ == '__main__':
     start_time = time.time()
     turns = main()
     elapsed = time.time() - start_time
-    print(f"Finished main() in {round(elapsed * 1000)} ms, {turns} turns")
+    print(f"/// Finished main() in {round(elapsed * 1000)} ms, {turns} turns")
 
 # rules source: https://en.wikibooks.org/wiki/Monopoly/Official_Rules
 # todo buy deeds if can afford

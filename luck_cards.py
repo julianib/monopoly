@@ -6,6 +6,7 @@ class LuckCard:
         "collect",
         "collect_from_players",
         "get_out_of_jail_free",
+        "go_directly_to_jail",
         "ignore_salary",
         "pay",
         "pay_factor",
@@ -13,9 +14,6 @@ class LuckCard:
         "pay_per_house",
         "pay_players"
     ]
-
-    CHANCE = 0
-    COMMUNITY_CHEST = 1
 
     def __init__(self, text, **effects):
         self.text = text
@@ -35,13 +33,21 @@ class LuckCard:
     def __repr__(self):
         return self.text
 
-    def get_not_none_effects(self):
+    def get_not_none_effects(self) -> dict:
         return_value = {}
         for effect, value in self.effects.items():
             if value is not None:
                 return_value[effect] = value
 
         return return_value
+
+    @staticmethod
+    def get_card_classes() -> list:
+        return [ChanceCard, CommunityChestCard]
+
+    @staticmethod
+    def get_card_classes_str() -> list:
+        return [clazz.__name__ for clazz in LuckCard.get_card_classes()]
 
 
 class ChanceCard(LuckCard):

@@ -3,6 +3,7 @@ class Space:
     def __init__(self, name, has_deed=False):
         self.name = name
         self.has_deed = has_deed  # probably unnecessary, isinstance is sufficient
+        self.n_landed_on = 0
 
     def __repr__(self):
         return self.name

@@ -1,69 +1,39 @@
 from util import *
-from luck_cards import ChanceCard, CommunityChestCard
-from spaces import *
-from deeds import *
 
 
 class Board:
     def __init__(self, game):
         self.game = game
-        self.chance_cards = []
-        self.community_chest_cards = []
         self.spaces = []
         self.n_spaces = 0
 
-        self.reset_board()
-        self.reset_luck_cards()
+        self.reset()
+        print(self)
+
+    def __repr__(self):
+        lines = ["/// THE BOARD:"]
+        lines.extend([f"{i}: {space}" for i, space in self])
+        return "\n".join(lines)
 
     def __iter__(self):
-        for i, space in enumerate(self.spaces):
-            yield i, space
+        return enumerate(self.spaces)
 
-    def draw_chance_card(self):
-        print("Drawing Chance card...")
+    def __getitem__(self, space_class_or_index):
+        if isinstance(space_class_or_index, type(Space)):  # get (FIRST) index of found space
+            for i, space in self:
+                if type(space) is space_class_or_index:
+                    return i
 
-        card = self.chance_cards.pop(0)
-        if not card["get_out_of_jail_free"]:
-            self.chance_cards.append(card)
+            raise ValueError(f"no such space class on board: {space_class_or_index}")
 
-        return card
+        assert isinstance(space_class_or_index, int), f"invalid type passed: {space_class_or_index}"
 
-    def draw_community_chest_card(self):
-        print("Drawing Community Chest card...")
+        return self.spaces[space_class_or_index]  # indexing item must an int
 
-        card = self.community_chest_cards.pop(0)
-        if not card["get_out_of_jail_free"]:
-            self.community_chest_cards.append(card)
-
-        return card
-
-    def get_go_index(self) -> int:
-        return self.get_space_index(name="GO")
-
-    def get_space_index(self, name, space_type=None) -> int:
-        # for param, value in search_params.items():
-        #     if param not in ["name", "group"]:
-        #         raise ValueError(f"Invalid space search param: {param}")
-
-        for i, space in self:
-            if space_type and type(space) == space_type:
-                return i
-
-            if space.name == name:
-                return i
-
-    def get_jail_index(self) -> int:
-        return self.get_space_index(name="Jail")
-
-    def get_space_at(self, at_index) -> Space:
-        for i, space in enumerate(self.spaces):
-            if i == at_index:
-                return space
-
-    def get_nearest_index_from_of(self, pos, space_type):
+    def get_nearest_index_from_of(self, pos, space_type) -> int:
         distances = []
         for i, space in self:
-            if type(space) == space_type:
+            if type(space) is space_type:
                 distance = i - pos
                 if pos > i:
                     distance += self.n_spaces
@@ -71,16 +41,18 @@ class Board:
                 distances.append(distance)
 
         if not distances:
-            raise Exception(f"No such space type on this board: {space_type}")
+            raise ValueError(f"no such space type on board: {space_type}")
 
-        return min(distances) + pos
+        return (min(distances) + pos) % self.n_spaces  # modulo needed?
 
-    def print_spaces(self):
-        lines = ["/// BOARD SPACES:"]
-        lines.extend([space.name for _, space in self])
-        print("\n".join(lines))
+    def get_hotspots(self) -> List[tuple]:
+        with open(".temp.txt", "w") as f:
+            spaces = [space.n_landed_on for _, space in self]
+            f.write(",".join(spaces))
 
-    def reset_board(self):
+        return sorted(self, key=lambda t: t[1].n_landed_on, reverse=True)
+
+    def reset(self):
         print("Resetting board...")
 
         self.spaces = [
@@ -131,56 +103,5 @@ class Board:
         ]
 
         self.n_spaces = len(self.spaces)
-        lots = [space for space in self.spaces if type(space) == Lot]
+        lots = [space for _, space in self if isinstance(space, Lot)]
         print(f"Reset board: {self.n_spaces} spaces, with {len(lots)} lots")
-
-    def reset_luck_cards(self):
-        print("Resetting luck cards...")
-
-        self.chance_cards = [
-            # source: https://monopoly.fandom.com/wiki/Chance
-            ChanceCard("Advance to GO", advance_to_name="GO"),
-            ChanceCard("Advance to E3", advance_to_name="Ec"),
-            ChanceCard("Advance to C1", advance_to_name="Ca"),
-            ChanceCard("Advance to nearest utility, if owned throw dice & pay 10x",
-                       advance_to_nearest=Utility, pay_factor=10),
-            ChanceCard("Advance to nearest railroad, if owned pay 2x rent",
-                       advance_to_nearest=Railroad, pay_factor=2),
-            ChanceCard("Bank pays dividend", collect=50),
-            ChanceCard("Get Out of Jail Free", get_out_of_jail_free=True),
-            ChanceCard("Go back 3 spaces", advance_steps=-3),
-            ChanceCard("Go directly to jail", advance_to_nearest=Jail, ignore_salary=True),
-            ChanceCard("Make property repairs", pay_per_house=25, pay_per_hotel=100),
-            ChanceCard("Pay poor tax", pay=15),
-            ChanceCard("Take a trip to R1", advance_to_name="Railroad W"),
-            ChanceCard("Take a walk on the Boardwalk", advance_to_name="Hb"),
-            ChanceCard("Elected Chairman, pay all players", pay_players=50),
-            ChanceCard("Your building loan matures", collect=150),
-            ChanceCard("You have won a competition", collect=100)
-        ]
-
-        random.shuffle(self.chance_cards)
-        print(f"Shuffled {len(self.chance_cards)} chance cards")
-
-        self.community_chest_cards = [  # source: https://monopoly.fandom.com/wiki/Community_Chest
-            CommunityChestCard("Advance to GO", advance_to_name="GO"),
-            CommunityChestCard("Bank error", collect=200),
-            CommunityChestCard("Doctor's fees", pay=50),
-            CommunityChestCard("From sale of stock, get $", collect=50),
-            CommunityChestCard("Get Out of Jail Free", get_out_of_jail_free=True),
-            CommunityChestCard("Go directly to jail", advance_to_nearest=Jail, ignore_salary=True),
-            CommunityChestCard("Grand Opera Night", collect_from_players=50),
-            CommunityChestCard("Holiday Fund matures", collect=100),
-            CommunityChestCard("Income tax refund", collect=20),
-            CommunityChestCard("It is your birthday", collect_from_players=10),
-            CommunityChestCard("Life insurance matures", collect=100),
-            CommunityChestCard("Hospital fees", pay=50),
-            CommunityChestCard("School fees", pay=50),
-            CommunityChestCard("Receive consultancy fee", collect=25),
-            CommunityChestCard("Assessed for street repairs", pay_per_house=40, pay_per_hotel=115),
-            CommunityChestCard("Won second price in beauty contest", collect=10),
-            CommunityChestCard("You inherit $", collect=100)
-        ]
-
-        random.shuffle(self.community_chest_cards)
-        print(f"Shuffled {len(self.community_chest_cards)} community chest cards")

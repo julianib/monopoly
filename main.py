@@ -45,4 +45,3 @@ if __name__ == '__main__':
 # todo don't go bankrupt if possessing deeds
 # todo houses and hotels
 # todo random trading if possessing > 50% of lots in a color group
-# todo get out of jail free card functionality

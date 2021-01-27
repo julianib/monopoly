@@ -14,16 +14,18 @@ class Player:
     def __init__(self, game, name):
         self.game = game
 
-        self.lot_deeds = []
-        self.railroad_deeds = []
-        self.utility_deeds = []
+        self.auction_min = random.randint(0, 100)
+        self.auction_max = self.auction_min + random.randint(0, 900)
+        self.participate_in_auction_chance = round(random.random(), 2)
+        self.deed_buy_chance = round(random.random() / 2, 2)
+        self.deeds = []
         self.get_out_of_jail_free_cards = []
         self.is_jailed = False
         self.rolls_in_jail_left = 0
         self.is_bankrupt = False
-        self.money = 1000
+        self.money = game.starting_money
         self.name = "Player " + str(name)
-        self.pos = 0  # index of board.spaces
+        self.pos = 0  # position of player in board.spaces
         self.last_dice_result = []
 
     def __repr__(self):
@@ -58,12 +60,13 @@ class Player:
                         self.earn(passed_space.salary)
                         self.game.n_salary_collected += 1
 
-        print(f"Landed on {self.game.board[self.pos]}")
+        print(f"Landed on {self.pos}: {self.game.board[self.pos]}")
 
     def advance_to_name(self, to_name: str, collect_salary=True):
-        # TODO bug: this finds the first item from GO (index 0), not from the PLAYER POS!
-
-        for i, space in self.game.board:
+        # TODO bug if name is not unique:
+        # this finds the first item from GO (index 0), not from the PLAYER POS!
+        # fix: use get nearest index from of, add str support there
+        for i, space in enumerate(self.game.board.spaces):
             if space.name == to_name:
                 self.advance_to_index(i, collect_salary=collect_salary)
                 return
@@ -71,9 +74,11 @@ class Player:
         raise ValueError(f"no space found with name: {to_name}")
 
     def advance_to_index(self, to_index: int, collect_salary=True):
+        to_index %= self.game.board.n_spaces  # prevent index out of range
+
         take_steps = to_index - self.pos
 
-        if self.pos > to_index:  # target space is behind player, so go around the board
+        if self.pos > to_index:  # target space is behind player
             take_steps += self.game.board.n_spaces
 
         self.advance_steps(take_steps, collect_salary)
@@ -84,7 +89,7 @@ class Player:
 
         return False
 
-    def do_turn(self):  # todo check for jail status
+    def do_turn(self):
         rolls = 0
         while True:
             rolls += 1
@@ -93,7 +98,7 @@ class Player:
 
             if self.is_jailed:
                 if self.get_out_of_jail_free_cards:
-                    self.game.used_get_out_of_jail_free_card(self.get_out_of_jail_free_cards.pop())
+                    self.game.append_get_out_of_jail_free_card(self.get_out_of_jail_free_cards.pop())
                     print("Used a get out of jail free card")
 
                 else:
@@ -101,11 +106,11 @@ class Player:
                         self.rolls_in_jail_left -= 1
                         if self.rolls_in_jail_left:
                             print(f"Didn't throw a double, still in jail "
-                                  f"(rolls left: {self.rolls_in_jail_left}")
+                                  f"(rolls left: {self.rolls_in_jail_left})")
                             break
 
                         else:  # forced to pay the fine to get out
-                            self.pay_tax(self.game.jail_fine)
+                            self.pay(self.game.jail_fine, tax_pile=True)
 
             elif is_double and rolls == self.game.rolls_required_to_go_to_jail:
                 self.go_directly_to_jail()  # raises EndTurn
@@ -143,11 +148,15 @@ class Player:
         if not self.money:
             raise Bankrupt
 
-    def pay_tax(self, amount):
+    def pay(self, amount, tax_pile=True):
         transfer_amount = min(amount, self.money)
-        print(f"{self.name} dumped ${transfer_amount} on the tax pile")
         self.money -= transfer_amount
-        self.game.tax_pile += transfer_amount
+
+        if tax_pile:
+            print(f"{self.name} threw ${transfer_amount} onto the tax pile")
+            self.game.tax_pile += transfer_amount
+        else:
+            print(f"{self.name} paid ${transfer_amount} to the bank")
 
         if not self.money:
             raise Bankrupt
@@ -172,6 +181,7 @@ class Player:
         if space_type is FreeParking:
             space: FreeParking
             if space.collect_tax_pile:
+                print("Grabbing all the money on the tax pile!")
                 self.earn(self.game.tax_pile)
                 self.game.tax_pile = 0
             return
@@ -187,81 +197,76 @@ class Player:
             return  # never reaches this, as go_jail() raises EndTurn
 
         if space_type is Jail:
-            return  # no effect
+            print("Just visiting!")
+            return
 
         if space_type is Tax:
             space: Tax
-            self.pay_tax(space.tax_amount)
+            self.pay(space.tax_amount, tax_pile=True)
             return
 
-        # Spaces that have deeds
-        assert isinstance(space, HasDeed)
+        # Spaces that have deeds (and maybe an owner)
+        assert isinstance(space, HasDeed), "no proper handle for this non-HasDeed space"
         deed = space.deed
         owner: Player = deed.owner
 
-        if space_type is Lot:
-            if owner:
-                if owner == self:
-                    return
+        if owner == self:  # assuming "self" is never None
+            print(f"You own {space} already!")
+            return
 
+        elif owner:  # owned by someone else, pay rent
+            print(f"{space} is owned by {owner.name}")
+            if space_type is Lot:  # todo double the rent if unimproved and owner has all lots in this color group
                 space: Lot
                 rent = deed.rent_per_building[space.buildings]
                 if pay_factor:
                     rent *= pay_factor
 
-                self.pay_player(owner, rent)
-
-            else:
-                pass  # purchase or something
-
-            return
-
-        if space_type is Railroad:
-            if owner:
-                if owner == self:
-                    return
-
-                n_railroads_owned = len(owner.railroad_deeds)
+            elif space_type is Railroad:
+                n_railroads_owned = len([deed for deed in owner.deeds if type(deed) == RailroadDeed])
                 assert n_railroads_owned > 0, "discrepancy in owner data, superposition railroad?"
+                rent = Railroad.RENT * Railroad.BASE ** (n_railroads_owned - 1)
 
-                rent = Railroad.BASE_RENT * 2**n_railroads_owned
                 if pay_factor:
                     rent *= pay_factor
 
-                self.pay_player(owner, rent)
-
-            else:
-                pass  # purchase or something
-
-            return
-
-        if space_type is Utility:
-            if owner:
-                if owner == self:
-                    return
-
+            else:  # if space_type is Utility
                 assert move_reason in MoveReason.get_reasons(), "unknown move reason"
+
                 if move_reason == MoveReason.LUCK_CARD:
                     dice_result, _ = get_dice_result()
                     print(f"{self} rolled {dice_result} (utility rent)")
                     dice_sum = sum(dice_result)
 
-                else:
+                else:  # if move_reason == MoveReason.DICE_ROLL
                     dice_sum = sum(self.last_dice_result)
 
                 if not pay_factor:
-                    n_utility_owned = len(owner.utility_deeds)
+                    n_utility_owned = len([deed for deed in owner.deeds if type(deed) == UtilityDeed])
                     assert n_utility_owned > 0, "discrepancy in owner data, superposition utility?"
 
                     pay_factor = Utility.OWNED_FACTOR[n_utility_owned - 1]
 
                 rent = dice_sum * pay_factor
-                self.pay_player(owner, rent)
+
+            print(f"Calculated rent owed: ${rent}")
+            self.pay_player(owner, rent)
+
+        else:  # not owned by anyone, todo: decide whether to buy or not
+            if self.can_afford(deed.price):
+                rand = random.random()
+                if rand < self.deed_buy_chance:
+                    print(f"Buying the deed of {space}...")
+                    self.pay(deed.price, tax_pile=False)
+                    self.deeds.append(deed)
+                    deed.owner = self
+                else:
+                    print(f"Decided not to buy the deed of {space}")
+                    self.game.auction_deed(deed)
 
             else:
-                pass  # purchase or something
-
-            return
+                print(f"Can't afford to buy the deed of {space}")
+                self.game.auction_deed(deed)
 
     def resolve_luck_card(self, card):
         print(f"Resolving luck card: {card}")
@@ -294,7 +299,7 @@ class Player:
             print("Received a Get Out of Jail Free card")
 
         if card["pay"]:
-            self.pay_tax(card["pay"])
+            self.pay(card["pay"], tax_pile=True)
 
         if card["pay_per_hotel"]:
             pass  # todo implement

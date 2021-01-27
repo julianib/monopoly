@@ -31,6 +31,8 @@ class Board:
         return self.spaces[space_class_or_index]  # indexing item must an int
 
     def get_nearest_index_from_of(self, pos, space_type) -> int:
+        # todo support multiple types (also str and color groups)
+
         distances = []
         for i, space in self:
             if type(space) is space_type:
@@ -55,7 +57,7 @@ class Board:
     def reset(self):
         print("Resetting board...")
 
-        self.spaces = [
+        self.spaces = [  # todo should be Orderded Dict
             # from https://images-na.ssl-images-amazon.com/images/I/81btrHKgO0L._AC_SL1500_.jpg
             Go(),
             Lot("A", "a", LotDeed(60, 50, (2, 10, 30, 90, 160, 250))),
@@ -93,6 +95,7 @@ class Board:
             GoToJail(),
             Lot("G", "a", LotDeed(300, 200, (26, 130, 390, 900, 1100, 1275))),
             Lot("G", "b", LotDeed(300, 200, (26, 130, 390, 900, 1100, 1275))),
+            Utility("Gas Company", UtilityDeed()),  # house rule
             CommunityChest(),
             Lot("G", "c", LotDeed(320, 200, (28, 150, 450, 1000, 1200, 1400))),
             Railroad("Z", RailroadDeed()),

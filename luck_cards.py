@@ -1,4 +1,4 @@
-class LuckCard:
+class LuckCard:  # should be abstract
     EFFECTS = [
         "advance_steps",
         "advance_to_name",

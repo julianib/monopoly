@@ -1,5 +1,7 @@
+from abc import ABC
+
 # Deed classes, the deeds that can be owned by players
-class Deed:  # should be abstract
+class Deed(ABC):
     def __init__(self, price):
         self.price = price
         self.mortgaged = False

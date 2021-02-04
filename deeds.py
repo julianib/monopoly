@@ -1,5 +1,6 @@
 from abc import ABC
 
+
 # Deed classes, the deeds that can be owned by players
 class Deed(ABC):
     def __init__(self, price):

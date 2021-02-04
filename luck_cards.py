@@ -1,4 +1,6 @@
-class LuckCard:  # should be abstract
+from abc import ABC
+
+class LuckCard(ABC):
     EFFECTS = [
         "advance_steps",
         "advance_to_name",

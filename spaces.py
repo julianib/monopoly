@@ -1,7 +1,7 @@
-# from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod
 
 
-class Space:  # class Space(ABC)
+class Space(ABC):
     def __init__(self, name, has_deed=False):
         self.name = name
         self.has_deed = has_deed  # probably unnecessary, isinstance is sufficient
@@ -57,7 +57,7 @@ class Tax(Space):
 
 
 # HasDeed classes, spaces that have a deed
-class HasDeed(Space):  # should be abstract
+class HasDeed(Space):
     def __init__(self, name, deed):
         self.deed = deed
         self.deed.name = name
